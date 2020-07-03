@@ -122,6 +122,9 @@ ProjNode* PhaseIdealLoop::create_new_if_for_predicate(ProjNode* cont_proj, Node*
     CallNode* call = rgn->as_Call();
     IdealLoopTree* loop = get_loop(call);
     rgn = new RegionNode(1);
+    Node* uncommon_proj_orig = uncommon_proj;
+    uncommon_proj = uncommon_proj->clone()->as_Proj();
+    register_control(uncommon_proj, loop, iff);
     rgn->add_req(uncommon_proj);
     register_control(rgn, loop, uncommon_proj);
     _igvn.replace_input_of(call, 0, rgn);
@@ -129,13 +132,9 @@ ProjNode* PhaseIdealLoop::create_new_if_for_predicate(ProjNode* cont_proj, Node*
     if (_idom != NULL) {
       set_idom(call, rgn, dom_depth(rgn));
     }
-    for (DUIterator_Fast imax, i = uncommon_proj->fast_outs(imax); i < imax; i++) {
-      Node* n = uncommon_proj->fast_out(i);
-      if (n->is_Load() || n->is_Store()) {
-        _igvn.replace_input_of(n, 0, rgn);
-        --i; --imax;
-      }
-    }
+    // Move nodes pinned on the projection or whose control is set to
+    // the projection to the region.
+    lazy_replace(uncommon_proj_orig, rgn);
   } else {
     // Find region's edge corresponding to uncommon_proj
     for (; proj_index < rgn->req(); proj_index++)
@@ -1338,17 +1337,17 @@ bool PhaseIdealLoop::loop_predication_impl(IdealLoopTree *loop) {
   ConNode* zero = _igvn.intcon(0);
   set_ctrl(zero, C->root());
 
-  ResourceArea *area = Thread::current()->resource_area();
+  ResourceArea* area = Thread::current()->resource_area();
   Invariance invar(area, loop);
 
   // Create list of if-projs such that a newer proj dominates all older
   // projs in the list, and they all dominate loop->tail()
-  Node_List if_proj_list(area);
-  Node_List regions(area);
-  Node *current_proj = loop->tail(); //start from tail
+  Node_List if_proj_list;
+  Node_List regions;
+  Node* current_proj = loop->tail(); // start from tail
 
 
-  Node_List controls(area);
+  Node_List controls;
   while (current_proj != head) {
     if (loop == get_loop(current_proj) && // still in the loop ?
         current_proj->is_Proj()        && // is a projection  ?
@@ -1417,7 +1416,7 @@ bool PhaseIdealLoop::loop_predication_impl(IdealLoopTree *loop) {
 
     // And look into all branches
     Node_Stack stack(0);
-    VectorSet seen(Thread::current()->resource_area());
+    VectorSet seen;
     Node_List if_proj_list_freq(area);
     while (regions.size() > 0) {
       Node* c = regions.pop();

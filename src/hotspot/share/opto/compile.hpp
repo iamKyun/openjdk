@@ -327,7 +327,8 @@ class Compile : public Phase {
   VectorSet             _dead_node_list;        // Set of dead nodes
   uint                  _dead_node_count;       // Number of dead nodes; VectorSet::Size() is O(N).
                                                 // So use this to keep count and make the call O(1).
-  DEBUG_ONLY( Unique_Node_List* _modified_nodes; )  // List of nodes which inputs were modified
+  DEBUG_ONLY(Unique_Node_List* _modified_nodes;)   // List of nodes which inputs were modified
+  DEBUG_ONLY(bool       _phase_optimize_finished;) // Used for live node verification while creating new nodes
 
   debug_only(static int _debug_idx;)            // Monotonic counter (not reset), use -XX:BreakAtNode=<idx>
   Arena                 _node_arena;            // Arena for new-space Nodes
@@ -614,9 +615,9 @@ class Compile : public Phase {
 
   Ticks _latest_stage_start_counter;
 
-  void begin_method() {
+  void begin_method(int level = 1) {
 #ifndef PRODUCT
-    if (_printer && _printer->should_print(1)) {
+    if (_method != NULL && should_print(level)) {
       _printer->begin_method();
     }
 #endif
@@ -625,7 +626,17 @@ class Compile : public Phase {
 
   bool should_print(int level = 1) {
 #ifndef PRODUCT
-    return (_printer && _printer->should_print(level));
+    if (PrintIdealGraphLevel < 0) { // disabled by the user
+      return false;
+    }
+
+    bool need = directive()->IGVPrintLevelOption >= level;
+    if (need && !_printer) {
+      _printer = IdealGraphPrinter::printer();
+      assert(_printer != NULL, "_printer is NULL when we need it!");
+      _printer->set_compile(this);
+    }
+    return need;
 #else
     return false;
 #endif
@@ -774,6 +785,8 @@ class Compile : public Phase {
             return (uint) val;
                                            }
 #ifdef ASSERT
+  void         set_phase_optimize_finished() { _phase_optimize_finished = true; }
+  bool         phase_optimize_finished() const { return _phase_optimize_finished; }
   uint         count_live_nodes_by_graph_walk();
   void         print_missing_nodes();
 #endif
@@ -854,7 +867,7 @@ class Compile : public Phase {
   // The profile factor is a discount to apply to this site's interp. profile.
   CallGenerator*    call_generator(ciMethod* call_method, int vtable_index, bool call_does_dispatch,
                                    JVMState* jvms, bool allow_inline, float profile_factor, ciKlass* speculative_receiver_type = NULL,
-                                   bool allow_intrinsics = true, bool delayed_forbidden = false);
+                                   bool allow_intrinsics = true);
   bool should_delay_inlining(ciMethod* call_method, JVMState* jvms) {
     return should_delay_string_inlining(call_method, jvms) ||
            should_delay_boxing_inlining(call_method, jvms);

@@ -69,7 +69,7 @@ ShenandoahPhaseTimings::ShenandoahPhaseTimings(uint max_workers) :
     if (is_worker_phase(Phase(i))) {
       int c = 0;
 #define SHENANDOAH_WORKER_DATA_INIT(type, title) \
-      if (c++ != 0) _worker_data[i + c] = new ShenandoahWorkerData(title, _max_workers);
+      if (c++ != 0) _worker_data[i + c] = new ShenandoahWorkerData(NULL, title, _max_workers);
       SHENANDOAH_PAR_PHASE_DO(,, SHENANDOAH_WORKER_DATA_INIT)
 #undef SHENANDOAH_WORKER_DATA_INIT
     }
@@ -103,12 +103,15 @@ bool ShenandoahPhaseTimings::is_worker_phase(Phase phase) {
     case full_gc_scan_roots:
     case full_gc_update_roots:
     case full_gc_adjust_roots:
+    case degen_gc_scan_conc_roots:
     case degen_gc_update_roots:
+    case full_gc_scan_conc_roots:
     case full_gc_purge_class_unload:
     case full_gc_purge_weak_par:
     case purge_class_unload:
     case purge_weak_par:
     case heap_iteration_roots:
+    case conc_mark_roots:
     case conc_weak_roots_work:
     case conc_strong_roots:
       return true;

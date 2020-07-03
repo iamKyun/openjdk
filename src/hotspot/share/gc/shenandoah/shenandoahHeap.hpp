@@ -141,9 +141,6 @@ public:
 
 // ---------- Initialization, termination, identification, printing routines
 //
-private:
-  static ShenandoahHeap* _heap;
-
 public:
   static ShenandoahHeap* heap();
 
@@ -160,7 +157,6 @@ public:
   void print_on(outputStream* st)              const;
   void print_extended_on(outputStream *st)     const;
   void print_tracing_info()                    const;
-  void print_gc_threads_on(outputStream* st)   const;
   void print_heap_regions_on(outputStream* st) const;
 
   void stop();
@@ -596,7 +592,6 @@ private:
   inline HeapWord* allocate_from_gclab(Thread* thread, size_t size);
   HeapWord* allocate_from_gclab_slow(Thread* thread, size_t size);
   HeapWord* allocate_new_gclab(size_t min_size, size_t word_size, size_t* actual_size);
-  void retire_and_reset_gclabs();
 
 public:
   HeapWord* allocate_memory(ShenandoahAllocRequest& request);
@@ -616,10 +611,11 @@ public:
   size_t max_tlab_size() const;
   size_t tlab_used(Thread* ignored) const;
 
-  void resize_tlabs();
+  void ensure_parsability(bool retire_labs);
 
-  void ensure_parsability(bool retire_tlabs);
-  void make_parsable(bool retire_tlabs);
+  void labs_make_parsable();
+  void tlabs_retire(bool resize);
+  void gclabs_retire(bool resize);
 
 // ---------- Marking support
 //

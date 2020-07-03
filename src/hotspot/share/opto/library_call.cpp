@@ -4327,7 +4327,7 @@ bool LibraryCallKit::inline_native_clone(bool is_virtual) {
       set_control(array_ctl);
       Node* obj_length = load_array_length(obj);
       Node* obj_size  = NULL;
-      Node* alloc_obj = new_array(obj_klass, obj_length, 0, &obj_size);  // no arguments to push
+      Node* alloc_obj = new_array(obj_klass, obj_length, 0, &obj_size, /*deoptimize_on_exception=*/true);
 
       BarrierSetC2* bs = BarrierSet::barrier_set()->barrier_set_c2();
       if (bs->array_copy_requires_gc_barriers(true, T_OBJECT, true, BarrierSetC2::Parsing)) {
@@ -4343,7 +4343,7 @@ bool LibraryCallKit::inline_native_clone(bool is_virtual) {
           ac->set_clone_oop_array();
           Node* n = _gvn.transform(ac);
           assert(n == ac, "cannot disappear");
-          ac->connect_outputs(this);
+          ac->connect_outputs(this, /*deoptimize_on_exception=*/true);
 
           result_reg->init_req(_objArray_path, control());
           result_val->init_req(_objArray_path, alloc_obj);
@@ -6522,21 +6522,21 @@ bool LibraryCallKit::inline_digestBase_implCompressMB(int predicate) {
 
   switch (predicate) {
   case 0:
-    if (UseSHA1Intrinsics) {
+    if (vmIntrinsics::is_intrinsic_available(vmIntrinsics::_sha_implCompress)) {
       klass_SHA_name = "sun/security/provider/SHA";
       stub_name = "sha1_implCompressMB";
       stub_addr = StubRoutines::sha1_implCompressMB();
     }
     break;
   case 1:
-    if (UseSHA256Intrinsics) {
+    if (vmIntrinsics::is_intrinsic_available(vmIntrinsics::_sha2_implCompress)) {
       klass_SHA_name = "sun/security/provider/SHA2";
       stub_name = "sha256_implCompressMB";
       stub_addr = StubRoutines::sha256_implCompressMB();
     }
     break;
   case 2:
-    if (UseSHA512Intrinsics) {
+    if (vmIntrinsics::is_intrinsic_available(vmIntrinsics::_sha5_implCompress)) {
       klass_SHA_name = "sun/security/provider/SHA5";
       stub_name = "sha512_implCompressMB";
       stub_addr = StubRoutines::sha512_implCompressMB();
